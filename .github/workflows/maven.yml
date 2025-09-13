@@ -1,0 +1,41 @@
+name: CI - Build & Trigger Jenkins Deployment
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  build-and-deploy:
+    # Run on your self-hosted runner
+    runs-on: [self-hosted, linux, arm64]
+
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v4
+
+      - name: Set up Java 11
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '11'
+
+      - name: Build with Maven
+        run: mvn -B clean package
+
+      - name: Upload WAR artifact (optional, for debugging)
+        uses: actions/upload-artifact@v4
+        with:
+          name: insured-webapp
+          path: target/*.war
+
+      - name: Trigger Jenkins job for deployment
+        env:
+          JENKINS_URL: ${{ secrets.JENKINS_URL }}
+          JENKINS_USER: ${{ secrets.JENKINS_USER }}
+          JENKINS_API_TOKEN: ${{ secrets.JENKINS_API_TOKEN }}
+          JENKINS_BUILD_TOKEN: ${{ secrets.JENKINS_BUILD_TOKEN }}
+          JENKINS_JOB: "deploy-to-tomcat"
+        run: |
+          echo "Triggering Jenkins job: $JENKINS_JOB"
+          curl -v -u "$JENKINS_USER:$JENKINS_API_TOKEN" \
+            -X POST "$JENKINS_URL/job/$JENKINS_JOB/build?token=$JENKINS_BUILD_TOKEN"
